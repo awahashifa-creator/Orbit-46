@@ -1,9 +1,17 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Users, LogOut, Search, Plus, Edit, Trash2, 
   GraduationCap, X, User, Lock, ArrowRight, ShieldCheck, XCircle
 } from 'lucide-react';
+import { initializeApp } from 'firebase/app';
+import { getAuth, signInAnonymously } from 'firebase/auth';
+import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import firebaseConfig from '../firebase-applet-config.json';
+
+const app = initializeApp(firebaseConfig);
+export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+export const auth = getAuth(app);
 
 interface Student {
   id: string;
@@ -54,18 +62,40 @@ const calculateStatus = (grade: number, attendance: number, category: string, at
   }
 };
 
-const defaultStudents: Student[] = [
-  { id: '1', name: 'Andi Pratama', nisn: '10001', className: 'XII-IPA-1', grade: 85, attendance: 90, attitude: 'Sangat Baik', category: 'Kelulusan', status: 'Lulus' },
-  { id: '2', name: 'Siti Aminah', nisn: '10002', className: 'XII-IPA-1', grade: 92, attendance: 95, attitude: 'Baik', category: 'Kelulusan', status: 'Lulus' },
-  { id: '3', name: 'Budi Santoso', nisn: '10003', className: 'XII-IPS-2', grade: 70, attendance: 85, attitude: 'Baik', category: 'Kelulusan', status: 'Tidak Lulus' },
-  { id: '4', name: 'Dewi Lestari', nisn: '10004', className: 'X-IPA-2', grade: 88, attendance: 70, attitude: 'Cukup', category: 'Kenaikan', status: 'Tinggal' },
-  { id: '5', name: 'Fajar Hidayat', nisn: '10005', className: 'XI-IPS-1', grade: 78, attendance: 85, attitude: 'Sangat Baik', category: 'Kenaikan', status: 'Naik Kelas' },
-];
-
 export default function App() {
   const [role, setRole] = useLocalStorage<Role | null>('orbit46_role_v3', null);
   const [username, setUsername] = useLocalStorage<string | null>('orbit46_username_v3', null);
-  const [students, setStudents] = useLocalStorage<Student[]>('orbit46_students_v3', defaultStudents);
+  const [students, setStudents] = useState<Student[]>([]);
+
+  useEffect(() => {
+    const seedInitialData = async () => {
+      if (localStorage.getItem('orbit46_seeded_v3')) return;
+      localStorage.setItem('orbit46_seeded_v3', 'true');
+      const defaultStudents = [
+        { id: '1', name: 'Andi Pratama', nisn: '10001', className: 'XII-IPA-1', grade: 85, attendance: 90, attitude: 'Sangat Baik', category: 'Kelulusan', status: 'Lulus' },
+        { id: '2', name: 'Siti Aminah', nisn: '10002', className: 'XII-IPA-1', grade: 92, attendance: 95, attitude: 'Baik', category: 'Kelulusan', status: 'Lulus' },
+        { id: '3', name: 'Budi Santoso', nisn: '10003', className: 'XII-IPS-2', grade: 70, attendance: 85, attitude: 'Baik', category: 'Kelulusan', status: 'Tidak Lulus' },
+        { id: '4', name: 'Dewi Lestari', nisn: '10004', className: 'X-IPA-2', grade: 88, attendance: 70, attitude: 'Cukup', category: 'Kenaikan', status: 'Tinggal' },
+        { id: '5', name: 'Fajar Hidayat', nisn: '10005', className: 'XI-IPS-1', grade: 78, attendance: 85, attitude: 'Sangat Baik', category: 'Kenaikan', status: 'Naik Kelas' },
+      ];
+      for (const student of defaultStudents) {
+        const { id, ...data } = student;
+        setDoc(doc(db, 'students', id), data).catch(console.error);
+      }
+    };
+
+    const unsubscribe = onSnapshot(collection(db, 'students'), (snapshot) => {
+      const studentData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Student[];
+      if (studentData.length === 0) {
+        seedInitialData();
+      }
+      setStudents(studentData);
+    }, (error) => {
+      console.error("Firestore Error:", error);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const handleCheckNisn = (nisn: string, setResult: (res: Student | 'NOT_FOUND' | null) => void) => {
     const student = students.find((s) => s.nisn === nisn);
@@ -76,8 +106,9 @@ export default function App() {
     return <PublicPortal onLogin={(r, u) => { setRole(r); setUsername(u); }} onCheckNisn={handleCheckNisn} />;
   }
 
-  return <Dashboard role={role} username={username} onLogout={() => { setRole(null); setUsername(null); }} students={students} setStudents={setStudents} />;
+  return <Dashboard role={role} username={username} onLogout={() => { setRole(null); setUsername(null); }} students={students} />;
 }
+
 
 // --- Public Portal Component ---
 function PublicPortal({ onLogin, onCheckNisn }: { onLogin: (r: Role, u: string) => void, onCheckNisn: any }) {
@@ -240,22 +271,33 @@ function Dashboard({ role, username, onLogout, students, setStudents }: any) {
     setIsModalOpen(true);
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     const g = parseFloat(formData.grade);
     const a = parseFloat(formData.attendance);
     const status = calculateStatus(g, a, formData.category, formData.attitude);
 
-    if (editingStudent) {
-      setStudents(students.map((s:Student) => s.id === editingStudent.id ? { ...s, ...formData, grade: g, attendance: a, status } : s));
-    } else {
-      setStudents([...students, { id: Date.now().toString(), ...formData, grade: g, attendance: a, status }]);
+    try {
+      const dataToSave = { ...formData, grade: g, attendance: a, status };
+      if (editingStudent) {
+        await updateDoc(doc(db, 'students', editingStudent.id), dataToSave);
+      } else {
+        await setDoc(doc(db, 'students', Date.now().toString()), dataToSave);
+      }
+      setIsModalOpen(false);
+    } catch (err) {
+      console.error(err);
+      alert('Gagal menyimpan data ke database.');
     }
-    setIsModalOpen(false);
   };
 
-  const handleDelete = (id: string) => {
-    setStudents(students.filter((s:Student) => s.id !== id));
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'students', id));
+    } catch (err) {
+      console.error(err);
+      alert('Gagal menghapus data.');
+    }
   };
 
   return (
@@ -394,7 +436,7 @@ function Dashboard({ role, username, onLogout, students, setStudents }: any) {
                         </td>
                         {role === 'GURU' && (
                           <td className="p-4 border-b border-black/5 text-right whitespace-nowrap">
-                            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex justify-end gap-2">
+                            <div className="flex justify-end gap-2">
                               <button onClick={() => handleOpenModal(s)} className="p-2.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl transition-colors border border-blue-100 shadow-sm"><Edit className="w-4 h-4" /></button>
                               <button onClick={() => handleDelete(s.id)} className="p-2.5 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-xl transition-colors border border-rose-100 shadow-sm"><Trash2 className="w-4 h-4" /></button>
                             </div>

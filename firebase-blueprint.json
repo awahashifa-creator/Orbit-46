@@ -1,0 +1,28 @@
+{
+  "entities": {
+    "Student": {
+      "title": "Student",
+      "description": "Student data for graduation and grade promotion",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "nisn": { "type": "string" },
+        "className": { "type": "string" },
+        "grade": { "type": "number" },
+        "attendance": { "type": "number" },
+        "category": { "type": "string", "enum": ["Kelulusan", "Kenaikan"] },
+        "attitude": { "type": "string" },
+        "status": { "type": "string" },
+        "createdBy": { "type": "string" }
+      },
+      "required": ["name", "nisn", "className", "grade", "attendance", "category", "attitude", "status"]
+    }
+  },
+  "firestore": {
+    "students/{studentId}": {
+      "schema": { "$ref": "#/entities/Student" },
+      "description": "The collection of students"
+    }
+  }
+}
