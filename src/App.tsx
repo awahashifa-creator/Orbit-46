@@ -13,6 +13,7 @@ interface Student {
   grade: number;
   attendance: number;
   category: 'Kelulusan' | 'Kenaikan';
+  attitude: string;
   status: string;
 }
 
@@ -42,8 +43,10 @@ function useLocalStorage<T>(key: string, initialValue: T) {
   return [storedValue, setValue] as const;
 }
 
-const calculateStatus = (grade: number, attendance: number, category: string) => {
-  const isPassed = grade >= 75 && attendance >= 80;
+const calculateStatus = (grade: number, attendance: number, category: string, attitude?: string) => {
+  const currentAttitude = attitude || 'Baik';
+  const isAttitudeGood = currentAttitude === 'Sangat Baik' || currentAttitude === 'Baik';
+  const isPassed = grade >= 75 && attendance >= 80 && isAttitudeGood;
   if (category === 'Kelulusan') {
     return isPassed ? 'Lulus' : 'Tidak Lulus';
   } else {
@@ -52,11 +55,11 @@ const calculateStatus = (grade: number, attendance: number, category: string) =>
 };
 
 const defaultStudents: Student[] = [
-  { id: '1', name: 'Andi Pratama', nisn: '10001', className: 'XII-IPA-1', grade: 85, attendance: 90, category: 'Kelulusan', status: 'Lulus' },
-  { id: '2', name: 'Siti Aminah', nisn: '10002', className: 'XII-IPA-1', grade: 92, attendance: 95, category: 'Kelulusan', status: 'Lulus' },
-  { id: '3', name: 'Budi Santoso', nisn: '10003', className: 'XII-IPS-2', grade: 70, attendance: 85, category: 'Kelulusan', status: 'Tidak Lulus' },
-  { id: '4', name: 'Dewi Lestari', nisn: '10004', className: 'X-IPA-2', grade: 88, attendance: 70, category: 'Kenaikan', status: 'Tinggal' },
-  { id: '5', name: 'Fajar Hidayat', nisn: '10005', className: 'XI-IPS-1', grade: 78, attendance: 85, category: 'Kenaikan', status: 'Naik Kelas' },
+  { id: '1', name: 'Andi Pratama', nisn: '10001', className: 'XII-IPA-1', grade: 85, attendance: 90, attitude: 'Sangat Baik', category: 'Kelulusan', status: 'Lulus' },
+  { id: '2', name: 'Siti Aminah', nisn: '10002', className: 'XII-IPA-1', grade: 92, attendance: 95, attitude: 'Baik', category: 'Kelulusan', status: 'Lulus' },
+  { id: '3', name: 'Budi Santoso', nisn: '10003', className: 'XII-IPS-2', grade: 70, attendance: 85, attitude: 'Baik', category: 'Kelulusan', status: 'Tidak Lulus' },
+  { id: '4', name: 'Dewi Lestari', nisn: '10004', className: 'X-IPA-2', grade: 88, attendance: 70, attitude: 'Cukup', category: 'Kenaikan', status: 'Tinggal' },
+  { id: '5', name: 'Fajar Hidayat', nisn: '10005', className: 'XI-IPS-1', grade: 78, attendance: 85, attitude: 'Sangat Baik', category: 'Kenaikan', status: 'Naik Kelas' },
 ];
 
 export default function App() {
@@ -117,7 +120,7 @@ function PublicPortal({ onLogin, onCheckNisn }: { onLogin: (r: Role, u: string) 
             <GraduationCap className="h-10 w-10 text-white drop-shadow-md" />
           </div>
           <h1 className="text-2xl font-bold tracking-widest text-white drop-shadow-md">ORBIT 46</h1>
-          <p className="text-white/80 text-sm mt-1">Portal Kelulusan & Manajemen Siswa</p>
+          <p className="text-white/80 text-sm mt-1">Kelulusan & Kenaikan Kelas</p>
         </div>
 
         <div className="flex bg-black/10 backdrop-blur-md">
@@ -134,7 +137,7 @@ function PublicPortal({ onLogin, onCheckNisn }: { onLogin: (r: Role, u: string) 
                     <label className="block text-white/90 text-sm font-medium mb-2">NISN Siswa</label>
                     <div className="relative">
                       <Search className="absolute left-3.5 top-3 h-5 w-5 text-white/50" />
-                      <input type="text" value={nisn} onChange={e=>setNisn(e.target.value)} required className="w-full bg-black/20 border border-white/20 rounded-xl py-3 pl-11 pr-4 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-white/50 transition-all font-medium" placeholder="Contoh: 10001" />
+                      <input type="text" value={nisn} onChange={e=>setNisn(e.target.value)} required className="w-full bg-black/20 border border-white/20 rounded-xl py-3 pl-11 pr-4 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-white/50 transition-all font-medium" placeholder="Masukkan NISN" />
                     </div>
                   </div>
                   <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full bg-white text-blue-900 font-bold py-3 rounded-xl mt-2 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all">
@@ -154,11 +157,17 @@ function PublicPortal({ onLogin, onCheckNisn }: { onLogin: (r: Role, u: string) 
                             <div className="font-bold text-xl">{checkResult.name}</div>
                             <div className="text-sm opacity-80 mt-1">Kelas {checkResult.className} | NISN: {checkResult.nisn}</div>
                           </div>
-                          <div className="flex justify-between items-center bg-white/10 p-4 rounded-xl border border-white/10">
-                            <span className="font-medium text-sm text-white/80">Status {checkResult.category === 'Kelulusan' ? 'Kelulusan' : 'Kenaikan'}</span>
-                            <span className={`px-4 py-1.5 rounded-lg text-sm font-bold shadow-md ${checkResult.status === 'Lulus' || checkResult.status === 'Naik Kelas' ? 'bg-emerald-400 text-emerald-950' : 'bg-rose-400 text-rose-950'}`}>
-                              {checkResult.status.toUpperCase()}
-                            </span>
+                          <div className="space-y-2">
+                            <div className="flex justify-between items-center bg-white/10 p-3 rounded-xl border border-white/10">
+                              <span className="font-medium text-sm text-white/80">Sikap/Karakter</span>
+                              <span className="text-sm font-bold shadow-md text-white">{checkResult.attitude || 'Baik'}</span>
+                            </div>
+                            <div className="flex justify-between items-center bg-white/10 p-4 rounded-xl border border-white/10">
+                              <span className="font-medium text-sm text-white/80">Status {checkResult.category === 'Kelulusan' ? 'Kelulusan' : 'Kenaikan'}</span>
+                              <span className={`px-4 py-1.5 rounded-lg text-sm font-bold shadow-md ${checkResult.status === 'Lulus' || checkResult.status === 'Naik Kelas' ? 'bg-emerald-400 text-emerald-950' : 'bg-rose-400 text-rose-950'}`}>
+                                {checkResult.status.toUpperCase()}
+                              </span>
+                            </div>
                           </div>
                         </div>
                       )}
@@ -202,7 +211,7 @@ function Dashboard({ role, username, onLogout, students, setStudents }: any) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
-  const [formData, setFormData] = useState({ name: '', nisn: '', className: '', grade: '', attendance: '', category: 'Kelulusan' });
+  const [formData, setFormData] = useState({ name: '', nisn: '', className: '', grade: '', attendance: '', attitude: 'Baik', category: 'Kelulusan' });
 
   const filteredStudents = useMemo(() => {
     return students
@@ -223,10 +232,10 @@ function Dashboard({ role, username, onLogout, students, setStudents }: any) {
   const handleOpenModal = (s?: Student) => {
     if (s) {
       setEditingStudent(s);
-      setFormData({ name: s.name, nisn: s.nisn, className: s.className, grade: s.grade.toString(), attendance: s.attendance.toString(), category: s.category || activeTab });
+      setFormData({ name: s.name, nisn: s.nisn, className: s.className, grade: s.grade.toString(), attendance: s.attendance.toString(), attitude: s.attitude || 'Baik', category: s.category || activeTab });
     } else {
       setEditingStudent(null);
-      setFormData({ name: '', nisn: '', className: '', grade: '', attendance: '', category: activeTab });
+      setFormData({ name: '', nisn: '', className: '', grade: '', attendance: '', attitude: 'Baik', category: activeTab });
     }
     setIsModalOpen(true);
   };
@@ -235,7 +244,7 @@ function Dashboard({ role, username, onLogout, students, setStudents }: any) {
     e.preventDefault();
     const g = parseFloat(formData.grade);
     const a = parseFloat(formData.attendance);
-    const status = calculateStatus(g, a, formData.category);
+    const status = calculateStatus(g, a, formData.category, formData.attitude);
 
     if (editingStudent) {
       setStudents(students.map((s:Student) => s.id === editingStudent.id ? { ...s, ...formData, grade: g, attendance: a, status } : s));
@@ -352,6 +361,7 @@ function Dashboard({ role, username, onLogout, students, setStudents }: any) {
                     <th className="font-bold text-xs text-slate-500 uppercase tracking-widest p-4 border-b border-black/5">Kelas</th>
                     <th className="font-bold text-xs text-slate-500 uppercase tracking-widest p-4 border-b border-black/5">Nilai Avg</th>
                     <th className="font-bold text-xs text-slate-500 uppercase tracking-widest p-4 border-b border-black/5">Kehadiran</th>
+                    <th className="font-bold text-xs text-slate-500 uppercase tracking-widest p-4 border-b border-black/5">Sikap</th>
                     <th className="font-bold text-xs text-slate-500 uppercase tracking-widest p-4 border-b border-black/5">Status</th>
                     {role === 'GURU' && <th className="font-bold text-xs text-slate-500 uppercase tracking-widest p-4 border-b border-black/5 text-right w-24">Aksi</th>}
                   </tr>
@@ -374,8 +384,11 @@ function Dashboard({ role, username, onLogout, students, setStudents }: any) {
                         <td className="p-4 border-b border-black/5 text-sm font-bold text-slate-700">{s.className}</td>
                         <td className="p-4 border-b border-black/5 text-sm font-bold text-slate-800">{s.grade}</td>
                         <td className="p-4 border-b border-black/5 text-sm font-bold text-slate-800">{s.attendance}%</td>
+                        <td className="p-4 border-b border-black/5 text-sm font-bold text-slate-800">
+                          {s.attitude || 'Baik'}
+                        </td>
                         <td className="p-4 border-b border-black/5">
-                          <span className={`px-4 py-1.5 rounded-lg text-xs font-bold shadow-sm ${s.status === 'Lulus' || s.status === 'Naik Kelas' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-rose-100 text-rose-800 border border-rose-200'}`}>
+                          <span className={`inline-block whitespace-nowrap px-4 py-1.5 rounded-lg text-xs font-bold shadow-sm ${s.status === 'Lulus' || s.status === 'Naik Kelas' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-rose-100 text-rose-800 border border-rose-200'}`}>
                             {s.status.toUpperCase()}
                           </span>
                         </td>
@@ -390,7 +403,7 @@ function Dashboard({ role, username, onLogout, students, setStudents }: any) {
                       </motion.tr>
                     )) : (
                       <tr>
-                        <td colSpan={role === 'GURU' ? 6 : 5} className="p-10 text-center text-slate-600 font-bold">Tidak ada data siswa ditemukan.</td>
+                        <td colSpan={role === 'GURU' ? 7 : 6} className="p-10 text-center text-slate-600 font-bold">Tidak ada data siswa ditemukan.</td>
                       </tr>
                     )}
                   </AnimatePresence>
@@ -440,16 +453,26 @@ function Dashboard({ role, username, onLogout, students, setStudents }: any) {
                     <label className="block text-sm font-bold text-slate-700 mb-2">Kelas</label>
                     <input type="text" required value={formData.className} onChange={e=>setFormData({...formData,className:e.target.value})} className="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 focus:ring-2 focus:ring-indigo-500 focus:outline-none placeholder:font-normal shadow-sm font-medium" />
                   </div>
-                  <div className="grid grid-cols-2 gap-5">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                     <div>
                       <label className="block text-sm font-bold text-slate-700 mb-2">Nilai Rata-rata</label>
-                      <input type="number" step="0.1" required value={formData.grade} onChange={e=>setFormData({...formData,grade:e.target.value})} className="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 focus:ring-2 focus:ring-indigo-500 focus:outline-none shadow-sm font-medium text-lg" />
+                      <input type="number" step="0.1" required value={formData.grade} onChange={e=>setFormData({...formData,grade:e.target.value})} className="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 focus:ring-2 focus:ring-indigo-500 focus:outline-none shadow-sm font-medium text-base md:text-lg" />
                       <p className="text-xs text-slate-500 font-bold mt-2">✨ Syarat: {'>='} 75</p>
                     </div>
                     <div>
                       <label className="block text-sm font-bold text-slate-700 mb-2">Kehadiran (%)</label>
-                      <input type="number" min="0" max="100" required value={formData.attendance} onChange={e=>setFormData({...formData,attendance:e.target.value})} className="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 focus:ring-2 focus:ring-indigo-500 focus:outline-none shadow-sm font-medium text-lg" />
+                      <input type="number" min="0" max="100" required value={formData.attendance} onChange={e=>setFormData({...formData,attendance:e.target.value})} className="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 focus:ring-2 focus:ring-indigo-500 focus:outline-none shadow-sm font-medium text-base md:text-lg" />
                       <p className="text-xs text-slate-500 font-bold mt-2">✨ Syarat: {'>='} 80%</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-2">Sikap/Karakter</label>
+                      <select required value={formData.attitude} onChange={e=>setFormData({...formData,attitude:e.target.value})} className="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 focus:ring-2 focus:ring-indigo-500 focus:outline-none shadow-sm font-medium text-base md:text-lg">
+                        <option value="Sangat Baik">Sangat Baik</option>
+                        <option value="Baik">Baik</option>
+                        <option value="Cukup">Cukup</option>
+                        <option value="Kurang">Kurang</option>
+                      </select>
+                      <p className="text-xs text-slate-500 font-bold mt-2">✨ Syarat: Min. Baik</p>
                     </div>
                   </div>
                 </div>
